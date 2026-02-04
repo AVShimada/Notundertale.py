@@ -1,6 +1,9 @@
 import pygame
 import sys
 import random
+import json
+import math
+from datetime import datetime
 
 # =========================
 # INIT
@@ -46,32 +49,56 @@ skins = {
 selected_skin = "default"
 
 # =========================
-# SCOREBOARD
+# SCOREBOARD (JSON)
 # =========================
-SCORE_FILE = "scores.txt"
+SCORE_FILE = "scores.json"
 MAX_SCORES = 10
 DISPLAY_TOP = 5
 
-def save_score(score_value: int):
-    """Ajoute un score dans le fichier."""
-    with open(SCORE_FILE, "a", encoding="utf-8") as f:
-        f.write(str(score_value) + "\n")
+def _load_score_data():
+    try:
+        with open(SCORE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, dict):
+                return {"scores": []}
+            if "scores" not in data or not isinstance(data["scores"], list):
+                data["scores"] = []
+            return data
+    except FileNotFoundError:
+        return {"scores": []}
+    except json.JSONDecodeError:
+        return {"scores": []}
+
+def _save_score_data(data):
+    with open(SCORE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def save_score(score_value: int, skin_name: str):
+    data = _load_score_data()
+    entry = {
+        "score": int(score_value),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "skin": str(skin_name)
+    }
+    data["scores"].append(entry)
+
+    # Tri: score DESC, date ASC (plus ancien d'abord si égalité)
+    data["scores"].sort(key=lambda e: (-int(e.get("score", 0)), e.get("date", "")))
+
+    # Top 10
+    data["scores"] = data["scores"][:MAX_SCORES]
+    _save_score_data(data)
 
 
 def load_scores():
-    """Charge et trie les scores (desc), renvoie MAX_SCORES."""
-    try:
-        with open(SCORE_FILE, "r", encoding="utf-8") as f:
-            scores = [int(line.strip()) for line in f if line.strip().isdigit()]
-    except FileNotFoundError:
-        scores = []
-
-    scores.sort(reverse=True)
-    return scores[:MAX_SCORES]
+    data = _load_score_data()
+    # Tri: score DESC, date ASC (plus ancien d'abord si égalité)
+    data["scores"].sort(key=lambda e: (-int(e.get("score", 0)), e.get("date", "")))
+    return data["scores"][:MAX_SCORES]
 
 
 # =========================
-# DIFFICULTÉ PROGRESSIVE
+# DIFFICULTÉ PROGRESSIVE (cap vitesse/spawn)
 # =========================
 DIFF_STEP = 20000
 DIFF_CAP = 100000
@@ -82,11 +109,9 @@ MIN_PROJECTILE_INTERVAL = 120
 
 current_speed_multiplier = 1.0
 
-
 def get_difficulty_level(score_value: int) -> int:
     capped = min(score_value, DIFF_CAP)
     return capped // DIFF_STEP
-
 
 def compute_difficulty(score_value: int):
     level = get_difficulty_level(score_value)
@@ -94,7 +119,6 @@ def compute_difficulty(score_value: int):
     interval = int(BASE_PROJECTILE_INTERVAL * ((1.0 - SPAWN_INC_PER_STEP) ** level))
     interval = max(MIN_PROJECTILE_INTERVAL, interval)
     return level, speed_mult, interval
-
 
 # =========================
 # EVENTS / TIMERS
@@ -114,14 +138,12 @@ pygame.time.set_timer(ADD_HEART_POWER_UP, 20000)
 music_volume = 0.5
 pygame.mixer.music.set_volume(music_volume)
 
-
 def load_and_play_music():
     try:
         pygame.mixer.music.load('background_music.mp3')
         pygame.mixer.music.play(-1)
     except pygame.error as e:
         print(f"Erreur de chargement de la musique : {e}")
-
 
 # =========================
 # SHIELD AURA (HALO BLEU)
@@ -142,7 +164,6 @@ def draw_shield_aura(surface, player_rect, remaining_ms):
     aura_pos = (player_rect.centerx - aura_radius, player_rect.centery - aura_radius)
     surface.blit(aura_surf, aura_pos)
 
-
 # =========================
 # UI HELPERS
 # =========================
@@ -152,9 +173,7 @@ def draw_text(surface, text, font, color, x, y):
     textrect.center = (x, y)
     surface.blit(textobj, textrect)
 
-
 def draw_volume_slider(current_volume):
-    """Dessine la jauge de volume et renvoie son rect."""
     slider_width = 300
     slider_height = 20
     slider_x = (screen_width // 2) - (slider_width // 2)
@@ -164,12 +183,10 @@ def draw_volume_slider(current_volume):
     slider_fg_color = (255, 255, 255)
 
     pygame.draw.rect(screen, slider_bg_color, (slider_x, slider_y, slider_width, slider_height), 0, 10)
-
     fill_width = int(current_volume * slider_width)
     pygame.draw.rect(screen, slider_fg_color, (slider_x, slider_y, fill_width, slider_height), 0, 10)
 
     return pygame.Rect(slider_x, slider_y, slider_width, slider_height)
-
 
 # =========================
 # SPRITES
@@ -179,10 +196,8 @@ class WarningLight(pygame.sprite.Sprite):
         super().__init__()
         self.width = screen_width // 8
         self.height = screen_height
-
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.image.fill((255, 255, 255, 120))
-
         self.rect = self.image.get_rect()
         self.rect.x = x_position
         self.rect.y = 0
@@ -194,7 +209,6 @@ class WarningLight(pygame.sprite.Sprite):
     def update(self):
         current_time = pygame.time.get_ticks()
         elapsed_time = (current_time - self.start_time) / 1000
-
         if elapsed_time >= 2 and not self.fading:
             self.fading = True
             self.fade_start_time = current_time
@@ -205,7 +219,6 @@ class WarningLight(pygame.sprite.Sprite):
             self.image.set_alpha(alpha)
             if alpha <= 0:
                 self.kill()
-
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -258,14 +271,13 @@ class Player(pygame.sprite.Sprite):
                 self.invulnerable = True
                 self.invulnerable_start_time = pygame.time.get_ticks()
 
-
 class Projectile(pygame.sprite.Sprite):
-    def __init__(self, image_path, speed):
+    def __init__(self, image_path, speed, size=(40, 40)):
         super().__init__()
-        self.image = pygame.image.load(image_path)
-        self.image = pygame.transform.scale(self.image, (40, 40))
+        self.image = pygame.image.load(image_path).convert_alpha()
+        self.image = pygame.transform.scale(self.image, size)
         self.rect = self.image.get_rect()
-        self.rect.x = random.randint(0, screen_width - self.rect.width)
+        self.rect.x = random.randint(0, max(0, screen_width - self.rect.width))
         self.rect.y = 0
 
         global current_speed_multiplier
@@ -280,21 +292,51 @@ class Projectile(pygame.sprite.Sprite):
         if self.rect.top > screen_height:
             self.kill()
 
-
 class Meteor1(Projectile):
     def __init__(self):
-        super().__init__('meteor1.png', speed=11)
-
+        super().__init__('meteor1.png', speed=11, size=(40, 40))
 
 class Meteor2(Projectile):
     def __init__(self):
-        super().__init__('meteor2.png', speed=12)
-
+        super().__init__('meteor2.png', speed=12, size=(40, 40))
 
 class Meteor3(Projectile):
     def __init__(self):
-        super().__init__('meteor3.png', speed=10)
+        super().__init__('meteor3.png', speed=10, size=(40, 40))
 
+# ✅ Nouvelle variante: lente mais grosse (à partir de 100k)
+class BigSlowMeteor(Projectile):
+    def __init__(self):
+        # plus grosse, plus lente
+        super().__init__('meteor3.png', speed=6, size=(90, 90))
+
+# ✅ Nouvelle variante: zigzag (à partir de 150k)
+class ZigZagMeteor(Projectile):
+    def __init__(self):
+        super().__init__('meteor2.png', speed=11, size=(45, 45))
+        self.base_x = self.rect.x
+        self.spawn_time = pygame.time.get_ticks()
+        self.amplitude = 140  # amplitude du zigzag
+        self.freq = 0.010     # vitesse du zigzag (rad/ms)
+
+    def update(self):
+        # mouvement vertical normal
+        self.y += self.speed
+        self.rect.y = int(self.y)
+
+        # zigzag horizontal
+        t = pygame.time.get_ticks() - self.spawn_time
+        offset = int(math.sin(t * self.freq) * self.amplitude)
+        self.rect.x = self.base_x + offset
+
+        # clamp écran
+        if self.rect.x < 0:
+            self.rect.x = 0
+        if self.rect.right > screen_width:
+            self.rect.right = screen_width
+
+        if self.rect.top > screen_height:
+            self.kill()
 
 class Laser(pygame.sprite.Sprite):
     def __init__(self, x_position):
@@ -327,11 +369,39 @@ class Laser(pygame.sprite.Sprite):
             if alpha <= 0:
                 self.kill()
 
+POWERUP_LIFETIME_MS = 5000
+POWERUP_BLINK_MS = 1000
+POWERUP_BLINK_PERIOD_MS = 150
 
-class ShieldPowerUp(pygame.sprite.Sprite):
+class TimedPowerUp(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.image.load('shield.png')
+        self.spawn_time = pygame.time.get_ticks()
+        self.visible = True
+
+    def _handle_lifetime(self):
+        now = pygame.time.get_ticks()
+        age = now - self.spawn_time
+
+        # Supprime après 5s
+        if age >= POWERUP_LIFETIME_MS:
+            self.kill()
+            return
+
+        # Clignote la dernière seconde
+        if age >= (POWERUP_LIFETIME_MS - POWERUP_BLINK_MS):
+            # toggle visible toutes les POWERUP_BLINK_PERIOD_MS
+            if (now // POWERUP_BLINK_PERIOD_MS) % 2 == 0:
+                self.image.set_alpha(50)
+            else:
+                self.image.set_alpha(255)
+        else:
+            self.image.set_alpha(255)
+
+class ShieldPowerUp(TimedPowerUp):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.image.load('shield.png').convert_alpha()
         self.image = pygame.transform.scale(self.image, (75, 75))
         self.rect = self.image.get_rect()
         self.rect.x = random.randint(0, screen_width - self.rect.width)
@@ -339,13 +409,13 @@ class ShieldPowerUp(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        pass
+        self._handle_lifetime()
 
 
-class HeartPowerUp(pygame.sprite.Sprite):
+class HeartPowerUp(TimedPowerUp):
     def __init__(self):
         super().__init__()
-        self.image = pygame.image.load('heart.png')
+        self.image = pygame.image.load('heart.png').convert_alpha()
         self.image = pygame.transform.scale(self.image, (50, 50))
         self.rect = self.image.get_rect()
         self.rect.x = random.randint(0, screen_width - self.rect.width)
@@ -353,7 +423,7 @@ class HeartPowerUp(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        pass
+        self._handle_lifetime()
 
 
 def create_sprites():
@@ -361,12 +431,13 @@ def create_sprites():
     projectiles = pygame.sprite.Group()
     lasers = pygame.sprite.Group()
     power_ups = pygame.sprite.Group()
-
     player = Player()
     all_sprites.add(player)
     return all_sprites, projectiles, lasers, power_ups, player
 
-
+# =========================
+# MENUS
+# =========================
 def show_coming_soon_screen():
     font = pygame.font.Font(None, 72)
     text = font.render("Coming Soon!", True, white)
@@ -376,15 +447,13 @@ def show_coming_soon_screen():
     screen.blit(text, text_rect)
     pygame.display.flip()
 
-    waiting = True
-    while waiting:
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
-                waiting = False
-
+                return
 
 def show_main_menu():
     global selected_skin
@@ -462,7 +531,6 @@ def show_main_menu():
 
         pygame.display.flip()
 
-
 def show_game_over_screen(scores, final_score):
     overlay = pygame.Surface((screen_width, screen_height))
     overlay.set_alpha(180)
@@ -495,7 +563,8 @@ def show_game_over_screen(scores, final_score):
     screen.blit(scoreboard_title, (center_x - scoreboard_title.get_width() // 2, content_y))
     content_y += 55
 
-    for i, s in enumerate(scores[:DISPLAY_TOP]):
+    for i, entry in enumerate(scores[:DISPLAY_TOP]):
+        s = entry.get("score", 0)
         line = text_font.render(f"{i + 1}. {s}", True, white)
         screen.blit(line, (center_x - line.get_width() // 2, content_y))
         content_y += 40
@@ -542,10 +611,7 @@ def show_game_over_screen(scores, final_score):
                     pygame.quit()
                     sys.exit()
 
-
-# ✅✅✅ CORRECTION ICI : on redessine paused_background à CHAQUE FRAME
 def show_pause_menu(paused_background):
-    """Retourne: 'resume', 'restart', 'menu', 'quit'"""
     title_font = pygame.font.Font(None, 96)
     text_font = pygame.font.Font(None, 48)
 
@@ -567,7 +633,6 @@ def show_pause_menu(paused_background):
     volume_slider_rect = pygame.Rect(0, 0, 1, 1)
 
     while True:
-        # ✅ IMPORTANT : on repart de l'image "pause" à chaque frame
         screen.blit(paused_background, (0, 0))
         screen.blit(overlay, (0, 0))
 
@@ -644,6 +709,43 @@ def show_pause_menu(paused_background):
                 new_volume = max(0, min(new_volume, 1))
                 pygame.mixer.music.set_volume(new_volume)
 
+# =========================
+# SPAWN LOGIC - variantes progressives
+# =========================
+def lerp(a, b, t):
+    return a + (b - a) * max(0.0, min(1.0, t))
+
+def choose_projectile_class(score_value: int):
+    """
+    - Base meteors au début
+    - BigSlowMeteor apparait progressivement à partir de 100k (0% -> 30% jusqu'à 150k)
+    - ZigZagMeteor apparait progressivement à partir de 150k (0% -> 25% jusqu'à 200k)
+    """
+    base_classes = [Meteor1, Meteor2, Meteor3]
+
+    # prob BigSlow (100k -> 150k)
+    if score_value < 100000:
+        p_big = 0.0
+    else:
+        t = (score_value - 100000) / 50000.0  # 0..1 entre 100k et 150k
+        p_big = lerp(0.0, 0.30, t)
+
+    # prob ZigZag (150k -> 200k)
+    if score_value < 150000:
+        p_zig = 0.0
+    else:
+        t = (score_value - 150000) / 50000.0  # 0..1 entre 150k et 200k
+        p_zig = lerp(0.0, 0.25, t)
+
+    r = random.random()
+
+    # On tire d'abord zigzag, puis big, sinon base.
+    if r < p_zig:
+        return ZigZagMeteor
+    elif r < p_zig + p_big:
+        return BigSlowMeteor
+    else:
+        return random.choice(base_classes)
 
 # =========================
 # GAME
@@ -651,7 +753,6 @@ def show_pause_menu(paused_background):
 score = 0
 high_score = 0
 score_font = pygame.font.Font(None, 48)
-
 
 def game_loop():
     global score, high_score, current_speed_multiplier
@@ -668,7 +769,7 @@ def game_loop():
 
     # Shield
     shield_start_time = 0
-    shield_duration = 3500
+    shield_duration = 3000
     shield_active = False
     remaining_ms = 0
 
@@ -704,8 +805,9 @@ def game_loop():
                 running = False
 
             elif event.type == ADD_PROJECTILE:
-                projectile_type = random.choice([Meteor1, Meteor2, Meteor3])
-                projectile = projectile_type()
+                # spawn variants selon score
+                projectile_class = choose_projectile_class(score)
+                projectile = projectile_class()
                 all_sprites.add(projectile)
                 projectiles.add(projectile)
 
@@ -733,7 +835,7 @@ def game_loop():
 
         keys = pygame.key.get_pressed()
 
-        # PAUSE MENU
+        # Pause
         if keys[pygame.K_ESCAPE] and (current_time - last_pause_time > pause_cooldown) and not is_paused:
             is_paused = True
             last_pause_time = current_time
@@ -742,7 +844,6 @@ def game_loop():
             action = show_pause_menu(paused_background)
 
             is_paused = False
-
             if action == "restart":
                 pygame.mixer.music.stop()
                 return "restart"
@@ -761,6 +862,7 @@ def game_loop():
             heart_power_ups.update()
             warning_lights.update()
 
+            # Collisions
             if pygame.sprite.spritecollideany(player, projectiles, pygame.sprite.collide_mask):
                 if not shield_active:
                     player.decrease_health()
@@ -782,9 +884,11 @@ def game_loop():
                 for _heart in pygame.sprite.spritecollide(player, heart_power_ups, dokill=True, collided=pygame.sprite.collide_mask):
                     player.health = min(player.health + 1, 3)
 
+            # Game Over
             if not player.alive():
                 pygame.mixer.music.stop()
-                save_score(score)
+
+                save_score(score, selected_skin)
                 scores_list = load_scores()
                 result = show_game_over_screen(scores_list, score)
 
@@ -796,6 +900,7 @@ def game_loop():
                     pygame.quit()
                     sys.exit()
 
+            # Warning laser
             if elapsed_time > laser_warning_time - 2 and not laser_warning_displayed:
                 laser_width = screen_width // 8
                 col = random.randint(0, 7)
@@ -812,14 +917,17 @@ def game_loop():
                 laser_warning_displayed = False
                 warning_lights.empty()
 
+            # Score
             score = int(elapsed_time * 1000)
 
+            # Difficulty update (cap à 100k)
             level, speed_mult, interval = compute_difficulty(score)
             if level != current_level:
                 current_level = level
                 current_speed_multiplier = speed_mult
                 pygame.time.set_timer(ADD_PROJECTILE, interval)
 
+            # Render
             screen.blit(background_surface, (0, 0))
             all_sprites.draw(screen)
             warning_lights.draw(screen)
@@ -839,7 +947,9 @@ def game_loop():
             pygame.display.flip()
             clock.tick(60)
 
-
+# =========================
+# MAIN
+# =========================
 def main():
     while True:
         mode = show_main_menu()
@@ -849,7 +959,6 @@ def main():
                 continue
         elif mode == "story":
             show_coming_soon_screen()
-
 
 if __name__ == "__main__":
     main()
