@@ -61,14 +61,6 @@ def load_and_play_music():
     except pygame.error as e:
         print(f"Erreur de chargement de la musique : {e}")
 
-
-# ===========================
-# MODIF 1 : Warning laser correct
-# - Warning = une seule colonne
-# - Warning vertical (comme laser)
-# - Laser spawn à la même position que le warning
-# ===========================
-
 class WarningLight(pygame.sprite.Sprite):
     def __init__(self, x_position):
         super().__init__()
@@ -294,14 +286,14 @@ def show_coming_soon_screen():
                 waiting = False
 
 
-def show_game_over_screen():
+def show_game_over_screen(scores):
     overlay = pygame.Surface((screen_width, screen_height))
     overlay.set_alpha(180)
     overlay.fill((0, 0, 0))
     screen.blit(overlay, (0, 0))
 
     menu_box_width = 500
-    menu_box_height = 450
+    menu_box_height = 750
     menu_box_x = (screen_width // 2) - (menu_box_width // 2)
     menu_box_y = (screen_height // 2) - (menu_box_height // 2)
 
@@ -317,9 +309,10 @@ def show_game_over_screen():
     score_text = text_font.render(f"Final Score: {score}", True, (255, 255, 255))
     screen.blit(score_text, (screen_width // 2 - score_text.get_width() // 2, menu_box_y + 150))
 
-    play_again_button_rect = pygame.Rect(screen_width // 2 - 150, menu_box_y + 210, 300, 50)
-    main_menu_button_rect = pygame.Rect(screen_width // 2 - 150, menu_box_y + 270, 300, 50)
-    quit_button_rect = pygame.Rect(screen_width // 2 - 150, menu_box_y + 330, 300, 50)
+    buttons_y = menu_box_y + 540  # sous scoreboard
+    play_again_button_rect = pygame.Rect(screen_width // 2 - 150, buttons_y, 300, 50)
+    main_menu_button_rect = pygame.Rect(screen_width // 2 - 150, buttons_y + 60, 300, 50)
+    quit_button_rect = pygame.Rect(screen_width // 2 - 150, buttons_y + 120, 300, 50)
 
     pygame.draw.rect(screen, (100, 100, 100), play_again_button_rect, border_radius=10)
     pygame.draw.rect(screen, (255, 255, 255), play_again_button_rect, 2, border_radius=10)
@@ -327,6 +320,26 @@ def show_game_over_screen():
     pygame.draw.rect(screen, (255, 255, 255), main_menu_button_rect, 2, border_radius=10)
     pygame.draw.rect(screen, (100, 100, 100), quit_button_rect, border_radius=10)
     pygame.draw.rect(screen, (255, 255, 255), quit_button_rect, 2, border_radius=10)
+    # ----- SCOREBOARD (TOP 5) -----
+    scoreboard_title = text_font.render("Top 5 Scores", True, (255, 215, 0))
+    scoreboard_title_y = menu_box_y + 210
+
+    screen.blit(
+        scoreboard_title,
+        (screen_width // 2 - scoreboard_title.get_width() // 2, scoreboard_title_y)
+    )
+
+    scoreboard_start_y = scoreboard_title_y + 40
+    line_height = 30
+
+    for i, s in enumerate(scores[:5]):
+        line = text_font.render(f"{i + 1}. {s}", True, white)
+        screen.blit(
+            line,
+            (screen_width // 2 - line.get_width() // 2,
+            scoreboard_start_y + i * line_height)
+        )
+
 
     play_again_text = text_font.render("Play Again", True, (255, 255, 255))
     screen.blit(play_again_text, (play_again_button_rect.centerx - play_again_text.get_width() // 2,
@@ -519,12 +532,6 @@ def draw_text(surface, text, font, color, x, y):
     textrect = textobj.get_rect()
     textrect.center = (x, y)
     surface.blit(textobj, textrect)
-
-
-# ===========================
-# MODIF 2 : supprimer le show_main_menu sans skins
-# -> on garde UNIQUEMENT celui avec skins
-# ===========================
 
 def show_main_menu():
     title_font = pygame.font.Font(None, 96)
@@ -831,9 +838,9 @@ def game_loop():
 
             if not player.alive():
                 pygame.mixer.music.stop()
-                if score > high_score:
-                    high_score = score
-                result = show_game_over_screen()
+                save_score(score)
+                scores = load_scores()
+                result = show_game_over_screen(scores)
                 if result == "play_again":
                     all_sprites, projectiles, lasers, power_ups, player = create_sprites()
                     heart_power_ups.empty()
@@ -885,6 +892,27 @@ def game_loop():
             pygame.display.flip()
             clock.tick(60)
 
+SCORE_FILE = "scores.json"
+MAX_SCORES = 10
+
+
+def save_score(score):
+    """Ajoute un score dans le fichier."""
+    with open(SCORE_FILE, "a") as f:
+        f.write(str(score) + "\n")
+
+
+def load_scores():
+    """Charge et trie les scores."""
+    try:
+        with open(SCORE_FILE, "r") as f:
+            scores = [int(line.strip()) for line in f if line.strip().isdigit()]
+    except FileNotFoundError:
+        scores = []
+
+    scores.sort(reverse=True)
+    return scores[:MAX_SCORES]
+
 def main():
     while True:
         mode = show_main_menu()
@@ -897,6 +925,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-# Version : corrections
-# - Warning laser : 1 seule colonne + vertical + laser au même endroit
-# - Suppression du show_main_menu sans skins (il n'en reste qu'un)
+# Version 1.0.2 Ajout d'un scoreboard au game over et correction de bugs mineurs
