@@ -9,6 +9,7 @@ from datetime import datetime
 # INIT
 # =========================
 pygame.init()
+pygame.mixer.init()
 
 info_screen = pygame.display.Info()
 screen_width = info_screen.current_w
@@ -17,7 +18,9 @@ screen_height = info_screen.current_h
 screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
 pygame.display.set_caption('NotUndertale')
 
-# Couleurs
+# =========================
+# COULEURS
+# =========================
 black = (0, 0, 0)
 white = (255, 255, 255)
 red = (255, 0, 0)
@@ -27,26 +30,33 @@ gray = (169, 169, 169)
 # =========================
 # ASSETS
 # =========================
-heart_image = pygame.image.load('heart.png')
+heart_image = pygame.image.load('heart.png').convert_alpha()
 heart_image = pygame.transform.scale(heart_image, (50, 50))
 heart_rect = heart_image.get_rect()
 
-shield_icon = pygame.image.load('shield.png')
+shield_icon = pygame.image.load('shield.png').convert_alpha()
 shield_icon = pygame.transform.scale(shield_icon, (75, 75))
 shield_icon_rect = shield_icon.get_rect()
 
-background_image = pygame.image.load('space_background.png')
+background_image = pygame.image.load('space_background.png').convert()
 background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
 background_surface = pygame.Surface((screen_width, screen_height))
 background_surface.blit(background_image, (0, 0))
 
 # Skins
 skins = {
-    "default": pygame.image.load('player.png'),
-    "skin1": pygame.image.load('player_skin1.png'),
-    "skin2": pygame.image.load('player_skin2.png')
+    "default": pygame.image.load('player.png').convert_alpha(),
+    "skin1": pygame.image.load('player_skin1.png').convert_alpha(),
+    "skin2": pygame.image.load('player_skin2.png').convert_alpha()
 }
 selected_skin = "default"
+
+# Son "hit" (optionnel)
+try:
+    hit_sound = pygame.mixer.Sound("hit.wav")  # mets un fichier hit.wav dans le dossier
+    hit_sound.set_volume(0.7)
+except Exception:
+    hit_sound = None
 
 # =========================
 # SCOREBOARD (JSON)
@@ -85,17 +95,13 @@ def save_score(score_value: int, skin_name: str):
     # Tri: score DESC, date ASC (plus ancien d'abord si égalité)
     data["scores"].sort(key=lambda e: (-int(e.get("score", 0)), e.get("date", "")))
 
-    # Top 10
     data["scores"] = data["scores"][:MAX_SCORES]
     _save_score_data(data)
 
-
 def load_scores():
     data = _load_score_data()
-    # Tri: score DESC, date ASC (plus ancien d'abord si égalité)
     data["scores"].sort(key=lambda e: (-int(e.get("score", 0)), e.get("date", "")))
     return data["scores"][:MAX_SCORES]
-
 
 # =========================
 # DIFFICULTÉ PROGRESSIVE (cap vitesse/spawn)
@@ -146,23 +152,26 @@ def load_and_play_music():
         print(f"Erreur de chargement de la musique : {e}")
 
 # =========================
-# SHIELD AURA (HALO BLEU)
+# POWERUPS: disparition + clignotement
 # =========================
-def draw_shield_aura(surface, player_rect, remaining_ms):
-    if remaining_ms <= 1000:
-        blink_period_ms = 150
-        if (pygame.time.get_ticks() // blink_period_ms) % 2 == 0:
-            return
+POWERUP_LIFETIME_MS = 5000
+POWERUP_BLINK_MS = 1000
+POWERUP_BLINK_PERIOD_MS = 150
 
-    aura_radius = max(player_rect.width, player_rect.height) // 2 + 18
-    aura_surf = pygame.Surface((aura_radius * 2, aura_radius * 2), pygame.SRCALPHA)
-    center = (aura_radius, aura_radius)
+# =========================
+# DASH
+# =========================
+DASH_DURATION_MS = 200
+DASH_COOLDOWN_MS = 5000
+DASH_SPEED_MULT = 3.0  # vitesse pendant dash
 
-    pygame.draw.circle(aura_surf, (0, 120, 255, 70), center, aura_radius)
-    pygame.draw.circle(aura_surf, (0, 170, 255, 110), center, aura_radius - 8)
-
-    aura_pos = (player_rect.centerx - aura_radius, player_rect.centery - aura_radius)
-    surface.blit(aura_surf, aura_pos)
+# =========================
+# HIT FEEDBACK
+# =========================
+SHAKE_DURATION_MS = 200
+SHAKE_MAX_AMPLITUDE = 10
+FLASH_DURATION_MS = 140
+FLASH_ALPHA = 90  # 0..255
 
 # =========================
 # UI HELPERS
@@ -187,6 +196,25 @@ def draw_volume_slider(current_volume):
     pygame.draw.rect(screen, slider_fg_color, (slider_x, slider_y, fill_width, slider_height), 0, 10)
 
     return pygame.Rect(slider_x, slider_y, slider_width, slider_height)
+
+# =========================
+# SHIELD AURA (HALO BLEU)
+# =========================
+def draw_shield_aura(surface, player_rect, remaining_ms):
+    if remaining_ms <= 1000:
+        blink_period_ms = 150
+        if (pygame.time.get_ticks() // blink_period_ms) % 2 == 0:
+            return
+
+    aura_radius = max(player_rect.width, player_rect.height) // 2 + 18
+    aura_surf = pygame.Surface((aura_radius * 2, aura_radius * 2), pygame.SRCALPHA)
+    center = (aura_radius, aura_radius)
+
+    pygame.draw.circle(aura_surf, (0, 120, 255, 70), center, aura_radius)
+    pygame.draw.circle(aura_surf, (0, 170, 255, 110), center, aura_radius - 8)
+
+    aura_pos = (player_rect.centerx - aura_radius, player_rect.centery - aura_radius)
+    surface.blit(aura_surf, aura_pos)
 
 # =========================
 # SPRITES
@@ -224,52 +252,138 @@ class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         self.original_image = pygame.transform.scale(skins[selected_skin], (100, 100))
-        self.image = self.original_image
+        self.image = self.original_image.copy()
         self.rect = self.image.get_rect()
         self.rect.center = (screen_width // 2, screen_height // 2)
         self.mask = pygame.mask.from_surface(self.image)
 
-        self.speed = 10
+        self.base_speed = 10
+        self.speed = self.base_speed
+
         self.health = 3
+
+        # invu après hit
         self.invulnerable = False
         self.invulnerable_start_time = 0
-        self.invulnerable_duration = 1
+        self.invulnerable_duration = 1.0
+
+        # dash
+        self.dashing = False
+        self.dash_start_time = 0
+        self.last_dash_time = -10_000_000  # pour permettre un dash direct
+        self.dash_dir = pygame.Vector2(0, 0)
+
+    def can_dash(self):
+        now = pygame.time.get_ticks()
+        return (now - self.last_dash_time) >= DASH_COOLDOWN_MS and not self.dashing
+
+    def start_dash(self, keys):
+        # direction basée sur les touches au moment du dash
+        dx = 0
+        dy = 0
+        if keys[pygame.K_LEFT]:
+            dx -= 1
+        if keys[pygame.K_RIGHT]:
+            dx += 1
+        if keys[pygame.K_UP]:
+            dy -= 1
+        if keys[pygame.K_DOWN]:
+            dy += 1
+
+        v = pygame.Vector2(dx, dy)
+        if v.length_squared() == 0:
+            # si aucune direction, dash dans la direction "face" (on prend droite par défaut)
+            v = pygame.Vector2(1, 0)
+        else:
+            v = v.normalize()
+
+        self.dashing = True
+        self.dash_start_time = pygame.time.get_ticks()
+        self.last_dash_time = self.dash_start_time
+        self.dash_dir = v
+
+    def is_invincible(self):
+        # invincible pendant dash + invu après hit
+        if self.dashing:
+            return True
+        if self.invulnerable:
+            return True
+        return False
 
     def update(self, keys):
-        if self.invulnerable:
-            current_time = pygame.time.get_ticks()
-            if (current_time - self.invulnerable_start_time) / 1000 > self.invulnerable_duration:
+        now = pygame.time.get_ticks()
+
+        # gestion invu après hit (clignote)
+        if self.invulnerable and not self.dashing:
+            if (now - self.invulnerable_start_time) / 1000 > self.invulnerable_duration:
                 self.invulnerable = False
-                self.image = self.original_image
+                self.image = self.original_image.copy()
                 self.image.set_alpha(255)
             else:
-                alpha = 255 * (1 - ((current_time - self.invulnerable_start_time) % 200) / 100)
+                alpha = 255 * (1 - ((now - self.invulnerable_start_time) % 200) / 100)
                 self.image.set_alpha(alpha)
 
-        if keys[pygame.K_LEFT]:
-            self.rect.x -= self.speed
-            self.image = pygame.transform.flip(self.original_image, True, False)
-            self.mask = pygame.mask.from_surface(self.image)
-        if keys[pygame.K_RIGHT]:
-            self.rect.x += self.speed
-            self.image = self.original_image
-            self.mask = pygame.mask.from_surface(self.image)
-        if keys[pygame.K_UP]:
-            self.rect.y -= self.speed
-        if keys[pygame.K_DOWN]:
-            self.rect.y += self.speed
+        # gestion dash
+        if self.dashing:
+            if (now - self.dash_start_time) >= DASH_DURATION_MS:
+                self.dashing = False
+            else:
+                # petit effet visuel pendant dash
+                self.image.set_alpha(180)
 
+        # déclenchement dash
+        if (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]) and self.can_dash():
+            self.start_dash(keys)
+
+        # movement
+        if self.dashing:
+            # déplacement sur 0.2s, rapide, direction figée
+            dash_speed = self.base_speed * DASH_SPEED_MULT
+            self.rect.x += int(self.dash_dir.x * dash_speed)
+            self.rect.y += int(self.dash_dir.y * dash_speed)
+        else:
+            moved = False
+            if keys[pygame.K_LEFT]:
+                self.rect.x -= self.base_speed
+                self.image = pygame.transform.flip(self.original_image, True, False)
+                self.mask = pygame.mask.from_surface(self.image)
+                moved = True
+            if keys[pygame.K_RIGHT]:
+                self.rect.x += self.base_speed
+                self.image = self.original_image
+                self.mask = pygame.mask.from_surface(self.image)
+                moved = True
+            if keys[pygame.K_UP]:
+                self.rect.y -= self.base_speed
+                moved = True
+            if keys[pygame.K_DOWN]:
+                self.rect.y += self.base_speed
+                moved = True
+
+            if not moved and not self.invulnerable:
+                self.image.set_alpha(255)
+
+        # clamp
         self.rect.x = max(0, min(self.rect.x, screen_width - self.rect.width))
         self.rect.y = max(0, min(self.rect.y, screen_height - self.rect.height))
 
+        # reset alpha si pas invu/dash
+        if not self.invulnerable and not self.dashing:
+            self.image.set_alpha(255)
+
     def decrease_health(self):
-        if not self.invulnerable:
-            self.health -= 1
-            if self.health <= 0:
-                self.kill()
-            else:
-                self.invulnerable = True
-                self.invulnerable_start_time = pygame.time.get_ticks()
+        """Retourne True si un dégât est vraiment appliqué (pour hit feedback)."""
+        if self.is_invincible():
+            return False
+
+        self.health -= 1
+        if self.health <= 0:
+            self.kill()
+            return True
+
+        self.invulnerable = True
+        self.invulnerable_start_time = pygame.time.get_ticks()
+        return True
 
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, image_path, speed, size=(40, 40)):
@@ -304,32 +418,28 @@ class Meteor3(Projectile):
     def __init__(self):
         super().__init__('meteor3.png', speed=10, size=(40, 40))
 
-# ✅ Nouvelle variante: lente mais grosse (à partir de 100k)
+# Variante: lente mais grosse (à partir de 100k)
 class BigSlowMeteor(Projectile):
     def __init__(self):
-        # plus grosse, plus lente
         super().__init__('meteor3.png', speed=6, size=(90, 90))
 
-# ✅ Nouvelle variante: zigzag (à partir de 150k)
+# Variante: zigzag (à partir de 150k)
 class ZigZagMeteor(Projectile):
     def __init__(self):
         super().__init__('meteor2.png', speed=11, size=(45, 45))
         self.base_x = self.rect.x
         self.spawn_time = pygame.time.get_ticks()
-        self.amplitude = 140  # amplitude du zigzag
-        self.freq = 0.010     # vitesse du zigzag (rad/ms)
+        self.amplitude = 140
+        self.freq = 0.010
 
     def update(self):
-        # mouvement vertical normal
         self.y += self.speed
         self.rect.y = int(self.y)
 
-        # zigzag horizontal
         t = pygame.time.get_ticks() - self.spawn_time
         offset = int(math.sin(t * self.freq) * self.amplitude)
         self.rect.x = self.base_x + offset
 
-        # clamp écran
         if self.rect.x < 0:
             self.rect.x = 0
         if self.rect.right > screen_width:
@@ -369,28 +479,21 @@ class Laser(pygame.sprite.Sprite):
             if alpha <= 0:
                 self.kill()
 
-POWERUP_LIFETIME_MS = 5000
-POWERUP_BLINK_MS = 1000
-POWERUP_BLINK_PERIOD_MS = 150
-
 class TimedPowerUp(pygame.sprite.Sprite):
+    """Base pour power-ups temporisés: disparaît à 5s, clignote la dernière seconde."""
     def __init__(self):
         super().__init__()
         self.spawn_time = pygame.time.get_ticks()
-        self.visible = True
 
     def _handle_lifetime(self):
         now = pygame.time.get_ticks()
         age = now - self.spawn_time
 
-        # Supprime après 5s
         if age >= POWERUP_LIFETIME_MS:
             self.kill()
             return
 
-        # Clignote la dernière seconde
         if age >= (POWERUP_LIFETIME_MS - POWERUP_BLINK_MS):
-            # toggle visible toutes les POWERUP_BLINK_PERIOD_MS
             if (now // POWERUP_BLINK_PERIOD_MS) % 2 == 0:
                 self.image.set_alpha(50)
             else:
@@ -411,7 +514,6 @@ class ShieldPowerUp(TimedPowerUp):
     def update(self):
         self._handle_lifetime()
 
-
 class HeartPowerUp(TimedPowerUp):
     def __init__(self):
         super().__init__()
@@ -425,12 +527,12 @@ class HeartPowerUp(TimedPowerUp):
     def update(self):
         self._handle_lifetime()
 
-
 def create_sprites():
     all_sprites = pygame.sprite.Group()
     projectiles = pygame.sprite.Group()
     lasers = pygame.sprite.Group()
     power_ups = pygame.sprite.Group()
+
     player = Player()
     all_sprites.add(player)
     return all_sprites, projectiles, lasers, power_ups, player
@@ -563,6 +665,7 @@ def show_game_over_screen(scores, final_score):
     screen.blit(scoreboard_title, (center_x - scoreboard_title.get_width() // 2, content_y))
     content_y += 55
 
+    # affichage: score uniquement (date gardée en fichier)
     for i, entry in enumerate(scores[:DISPLAY_TOP]):
         s = entry.get("score", 0)
         line = text_font.render(f"{i + 1}. {s}", True, white)
@@ -718,28 +821,24 @@ def lerp(a, b, t):
 def choose_projectile_class(score_value: int):
     """
     - Base meteors au début
-    - BigSlowMeteor apparait progressivement à partir de 100k (0% -> 30% jusqu'à 150k)
-    - ZigZagMeteor apparait progressivement à partir de 150k (0% -> 25% jusqu'à 200k)
+    - BigSlowMeteor apparaît progressivement à partir de 100k (0% -> 30% jusqu'à 150k)
+    - ZigZagMeteor apparaît progressivement à partir de 150k (0% -> 25% jusqu'à 200k)
     """
     base_classes = [Meteor1, Meteor2, Meteor3]
 
-    # prob BigSlow (100k -> 150k)
     if score_value < 100000:
         p_big = 0.0
     else:
-        t = (score_value - 100000) / 50000.0  # 0..1 entre 100k et 150k
+        t = (score_value - 100000) / 50000.0
         p_big = lerp(0.0, 0.30, t)
 
-    # prob ZigZag (150k -> 200k)
     if score_value < 150000:
         p_zig = 0.0
     else:
-        t = (score_value - 150000) / 50000.0  # 0..1 entre 150k et 200k
+        t = (score_value - 150000) / 50000.0
         p_zig = lerp(0.0, 0.25, t)
 
     r = random.random()
-
-    # On tire d'abord zigzag, puis big, sinon base.
     if r < p_zig:
         return ZigZagMeteor
     elif r < p_zig + p_big:
@@ -767,7 +866,7 @@ def game_loop():
     pause_cooldown = 250
     is_paused = False
 
-    # Shield
+    # Shield (invincibilité "bouclier")
     shield_start_time = 0
     shield_duration = 3000
     shield_active = False
@@ -782,10 +881,17 @@ def game_loop():
     # Difficulty
     current_level = -1
 
+    # Hit feedback timers
+    shake_end_time = 0
+    flash_end_time = 0
+
     load_and_play_music()
 
     running = True
     clock = pygame.time.Clock()
+
+    # Surface de rendu (pour screen shake)
+    frame_surface = pygame.Surface((screen_width, screen_height)).convert()
 
     while running:
         current_time = pygame.time.get_ticks()
@@ -805,7 +911,6 @@ def game_loop():
                 running = False
 
             elif event.type == ADD_PROJECTILE:
-                # spawn variants selon score
                 projectile_class = choose_projectile_class(score)
                 projectile = projectile_class()
                 all_sprites.add(projectile)
@@ -862,19 +967,34 @@ def game_loop():
             heart_power_ups.update()
             warning_lights.update()
 
-            # Collisions
+            # Collisions (PROJECTILES)
             if pygame.sprite.spritecollideany(player, projectiles, pygame.sprite.collide_mask):
-                if not shield_active:
-                    player.decrease_health()
+                if not shield_active and not player.is_invincible():
+                    took = player.decrease_health()
                     for projectile in pygame.sprite.spritecollide(player, projectiles, dokill=True, collided=pygame.sprite.collide_mask):
                         projectile.kill()
 
+                    if took:
+                        # HIT FEEDBACK
+                        shake_end_time = current_time + SHAKE_DURATION_MS
+                        flash_end_time = current_time + FLASH_DURATION_MS
+                        if hit_sound:
+                            hit_sound.play()
+
+            # Collisions (LASERS)
             if pygame.sprite.spritecollideany(player, lasers, pygame.sprite.collide_mask):
-                if not shield_active:
-                    player.decrease_health()
+                if not shield_active and not player.is_invincible():
+                    took = player.decrease_health()
                     for laser in pygame.sprite.spritecollide(player, lasers, dokill=True, collided=pygame.sprite.collide_mask):
                         laser.kill()
 
+                    if took:
+                        shake_end_time = current_time + SHAKE_DURATION_MS
+                        flash_end_time = current_time + FLASH_DURATION_MS
+                        if hit_sound:
+                            hit_sound.play()
+
+            # Collisions (POWER UPS)
             if pygame.sprite.spritecollideany(player, power_ups, pygame.sprite.collide_mask):
                 for _power_up in pygame.sprite.spritecollide(player, power_ups, dokill=True, collided=pygame.sprite.collide_mask):
                     shield_active = True
@@ -927,22 +1047,50 @@ def game_loop():
                 current_speed_multiplier = speed_mult
                 pygame.time.set_timer(ADD_PROJECTILE, interval)
 
-            # Render
-            screen.blit(background_surface, (0, 0))
-            all_sprites.draw(screen)
-            warning_lights.draw(screen)
+            # =========================
+            # RENDER (sur frame_surface)
+            # =========================
+            frame_surface.blit(background_surface, (0, 0))
+            all_sprites.draw(frame_surface)
+            warning_lights.draw(frame_surface)
 
+            # Halo bouclier (par-dessus)
             if shield_active:
-                draw_shield_aura(screen, player.rect, remaining_ms)
+                draw_shield_aura(frame_surface, player.rect, remaining_ms)
 
+            # UI hearts
             for i in range(player.health):
-                screen.blit(heart_image, (10 + i * (heart_rect.width + 5), 10))
+                frame_surface.blit(heart_image, (10 + i * (heart_rect.width + 5), 10))
 
             if shield_active:
-                screen.blit(shield_icon, (10, 70))
+                frame_surface.blit(shield_icon, (10, 70))
 
+            # Score text
             score_text = score_font.render(f"Score: {score}", True, white)
-            screen.blit(score_text, (screen_width - score_text.get_width() - 20, 10))
+            frame_surface.blit(score_text, (screen_width - score_text.get_width() - 20, 10))
+
+            # =========================
+            # SCREEN SHAKE
+            # =========================
+            offset_x = 0
+            offset_y = 0
+            if current_time < shake_end_time:
+                remaining = shake_end_time - current_time
+                t = remaining / SHAKE_DURATION_MS  # 1 -> 0
+                amp = int(SHAKE_MAX_AMPLITUDE * t)
+                offset_x = random.randint(-amp, amp)
+                offset_y = random.randint(-amp, amp)
+
+            screen.fill((0, 0, 0))
+            screen.blit(frame_surface, (offset_x, offset_y))
+
+            # =========================
+            # FLASH ROUGE
+            # =========================
+            if current_time < flash_end_time:
+                flash = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+                flash.fill((255, 0, 0, FLASH_ALPHA))
+                screen.blit(flash, (0, 0))
 
             pygame.display.flip()
             clock.tick(60)
@@ -962,3 +1110,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# AUCUN BUG RENCONTRER POUR L'INSTANT 
+# A faire : ligne 54 ajout d'un son de hit (quand le joueur perd une vie)
+# Ajout d'une jauge de cooldown pour le dash
+# Ajout d'un son de dash
+# Ajout d'un son de ramassage de power-up
+# Ajout d'un son de game over
+# Amélioration des graphismes (background, projectiles, player skin, power-ups)
+# Ajout d'un moyen de jouer à la manette
+# Ajout du mode histoire 
