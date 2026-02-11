@@ -1112,6 +1112,7 @@ if __name__ == "__main__":
     main()
 
 # AUCUN BUG RENCONTRER POUR L'INSTANT 
+# Séparer les différentes fonctions en script pour éviter les bugs et que sa soit plus lisible
 # A faire : ligne 54 ajout d'un son de hit (quand le joueur perd une vie)
 # Ajout d'une jauge de cooldown pour le dash
 # Ajout d'un son de dash
@@ -1120,3 +1121,4 @@ if __name__ == "__main__":
 # Amélioration des graphismes (background, projectiles, player skin, power-ups)
 # Ajout d'un moyen de jouer à la manette
 # Ajout du mode histoire 
+
