@@ -56,7 +56,10 @@ class MiniCharacterTests(unittest.TestCase):
                 self.assertGreater(mask.count(), 100)
                 self.assertLess(mask.count(), 32 * 48 * 0.8)
                 pixels.add(pygame.image.tostring(image, "RGBA"))
-                self.assertEqual(self.game_with(name).player.rect.size, (32, 48))
+                player = self.game_with(name).player
+                self.assertEqual(player.rect.size, (100, 100))
+                self.assertEqual(player.image.get_bounding_rect(min_alpha=128).height,
+                                 self.assets.skins["skin2"].get_bounding_rect(min_alpha=128).height)
         self.assertEqual(len(pixels), 4)
 
     def test_transparent_margin_misses_but_visible_body_takes_damage_both_directions(self):
@@ -74,7 +77,7 @@ class MiniCharacterTests(unittest.TestCase):
                     game.add_sprite(bullet, game.projectiles)
                     game.handle_collisions(0)
                     self.assertEqual(player.health, 3)
-                    point = next((x, y) for y in range(48) for x in range(32)
+                    point = next((x, y) for y in range(player.rect.height) for x in range(player.rect.width)
                                  if player.mask.get_at((x, y)))
                     bullet.rect.topleft = (player.rect.x + point[0], player.rect.y + point[1])
                     game.handle_collisions(0)
@@ -89,9 +92,9 @@ class MiniCharacterTests(unittest.TestCase):
                 game.player.update(InputState(x=-1, y=-1, dash=True))
                 self.assertEqual(game.player.rect.topleft, (0, 0))
                 self.assertTrue(game.player.dashing)
-                self.assertEqual(game.player.image.get_size(), (32, 48))
+                self.assertEqual(game.player.image.get_size(), (100, 100))
                 restarted = Game(self.app)
-                self.assertEqual(restarted.player.image.get_size(), (32, 48))
+                self.assertEqual(restarted.player.image.get_size(), (100, 100))
                 self.assertEqual(restarted.player.image.get_alpha(), 255)
                 self.assertTrue(restarted.player.can_dash())
 

@@ -8,17 +8,19 @@ class Skin:
     label: str
     filename: str
     size: tuple[int, int]
+    match_reference_height: bool = False
 
 
 MINI_SPRITE_SIZE = (32, 48)
+PLAYER_SPRITE_SIZE = (100, 100)
 DEFAULT_SKIN = "remanent"
 SKINS = {
-    "remanent": Skin("Le Rémanent", "characters/remanent.png", MINI_SPRITE_SIZE),
-    "scaphandre": Skin("Le Scaphandre", "characters/scaphandre.png", MINI_SPRITE_SIZE),
-    "colonie": Skin("La Colonie", "characters/colonie.png", MINI_SPRITE_SIZE),
-    "deriveur": Skin("Le Dériveur", "characters/deriveur.png", MINI_SPRITE_SIZE),
-    "default": Skin("Classique", "player.png", (100, 100)),
-    "skin2": Skin("Classique II", "player_skin2.png", (100, 100)),
+    "remanent": Skin("Le Rémanent", "characters/remanent.png", PLAYER_SPRITE_SIZE, True),
+    "scaphandre": Skin("Le Scaphandre", "characters/scaphandre.png", PLAYER_SPRITE_SIZE, True),
+    "colonie": Skin("La Colonie", "characters/colonie.png", PLAYER_SPRITE_SIZE, True),
+    "deriveur": Skin("Le Dériveur", "characters/deriveur.png", PLAYER_SPRITE_SIZE, True),
+    "default": Skin("Classique", "player.png", PLAYER_SPRITE_SIZE),
+    "skin2": Skin("Classique II", "player_skin2.png", PLAYER_SPRITE_SIZE),
 }
 
 

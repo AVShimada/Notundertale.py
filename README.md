@@ -51,16 +51,17 @@ Quatre astronautes morts, animés par une substance inconnue, sont jouables dans
 mode Infini : **Le Rémanent** (cyan), **Le Scaphandre** (ambre), **La Colonie**
 (violet) et **Le Dériveur** (vert pâle). Le Rémanent est sélectionné au démarrage.
 
-Leurs PNG transparents font **32 × 48 pixels**, affichés à leur taille native
-pendant la partie. Le menu les agrandit sans lissage et sans déformation ; ses six
-cartes sont réparties sur deux lignes, avec les deux apparences classiques à la
+Leurs PNG transparents font **32 × 48 pixels** et sont agrandis en jeu à la
+**même hauteur visible que le skin 2**, dans un cadre de 100 × 100 pixels.
+Leurs proportions sont conservées, sans lissage des pixels. Les six cartes du menu
+sont réparties sur deux lignes, avec les deux apparences classiques à la
 suite des nouvelles. Cliquer sur une carte ou utiliser gauche / droite au clavier
 ou à la manette, puis lancer **Mode Infini**.
 
 Les collisions suivent les pixels du sprite, y compris après retournement ; les
-marges transparentes ne subissent pas de dégâts. La taille réduite offre donc
-plus de place pour esquiver. Les commandes, la vitesse, les vies et le dash restent
-les mêmes. Les personnages classiques gardent leurs dimensions précédentes.
+marges transparentes ne subissent pas de dégâts. Les commandes, la vitesse, les
+vies et le dash restent les mêmes. Les personnages classiques gardent leurs
+dimensions précédentes.
 
 Cette première intégration utilise des poses fixes qui se retournent selon le
 déplacement, avec les effets existants de dash et de dégâts. Les cycles d'animation

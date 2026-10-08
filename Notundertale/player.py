@@ -9,7 +9,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        # Le catalogue fixe la taille de jeu : ne pas regonfler les miniatures.
+        # Les assets ont déjà la bonne taille de jeu et conservent leurs proportions.
         self.original_image = app.assets.skins[app.selected_skin].copy()
         self.image = self.original_image.copy()
         self.rect = self.image.get_rect(center=app.screen.get_rect().center)

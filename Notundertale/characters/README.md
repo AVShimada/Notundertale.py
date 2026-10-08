@@ -1,7 +1,9 @@
 # Personnages originaux
 
-Les quatre PNG transparents sont des sprites de 32 × 48 pixels, affichés sans
-lissage. Ils ont été créés avec l'outil intégré de génération d'images à partir
+Les quatre PNG transparents sont des sources de 32 × 48 pixels, agrandies sans
+lissage à la même hauteur visible que le skin 2 (93 pixels actuellement), dans
+un cadre de 100 × 100 pixels. Leurs proportions sont conservées. Ils ont été
+créés avec l'outil intégré de génération d'images à partir
 des concepts originaux du projet, puis cadrés et réduits au format du jeu.
 
 - `remanent.png` : combinaison ivoire et parasite cyan.
