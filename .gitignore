@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+Notundertale/scores.json
+Notundertale/scores.json.tmp
+Notundertale/controls.json
+Notundertale/controls.json.tmp
