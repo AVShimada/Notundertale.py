@@ -19,6 +19,8 @@ from Notundertale.controls import Binding, ControlSettings, DEFAULT_KEYS, defaul
 from Notundertale.controls_menu import show_controls_menu
 from Notundertale.input import BindingCapture, InputManager, MenuInput, Pad
 from Notundertale.menus import show_main_menu, show_pause_menu, show_game_over_screen
+from Notundertale.assets import Assets
+from Notundertale.skins import SKINS
 
 
 class FakePad(Pad):
@@ -250,7 +252,7 @@ class ControlsTests(unittest.TestCase):
     def make_app(self):
         image = pygame.Surface((100, 100))
         return SimpleNamespace(screen=self.screen, inputs=self.inputs, selected_skin="default",
-                               assets=SimpleNamespace(skins={"default": image, "skin1": image, "skin2": image}),
+                               assets=SimpleNamespace(skins={"default": image, "skin2": image}),
                                audio=SimpleNamespace(volume=0.5, set_volume=Mock()))
 
     def run_menu_frames(self, call, batches):
@@ -297,6 +299,23 @@ class ControlsTests(unittest.TestCase):
         self.assertEqual(self.run_menu_frames(lambda: show_main_menu(app), [[confirm]]), "infinite")
         self.assertEqual(self.run_menu_frames(lambda: show_pause_menu(app, self.screen.copy()), [[back]]), "resume")
         self.assertEqual(self.run_menu_frames(lambda: show_game_over_screen(app, [], 0), [[confirm]]), "restart")
+
+    def test_controller_selects_all_six_characters_across_rows(self):
+        app = self.make_app()
+        app.assets = Assets(self.screen.get_size())
+        app.selected_skin = "remanent"
+        names = list(SKINS)
+        for expected in names[1:] + names[:1]:
+            def frames():
+                self.pad.axes[0] = 32767
+                yield []
+                self.pad.axes[0] = 0
+                yield []
+                yield [pygame.event.Event(pygame.CONTROLLERBUTTONDOWN, instance_id=7, button=0)]
+                yield [pygame.event.Event(pygame.QUIT)]
+            with patch("pygame.event.get", side_effect=frames()):
+                self.assertEqual(show_main_menu(app), "infinite")
+            self.assertEqual(app.selected_skin, expected)
 
     def test_pause_controls_menu_does_not_resume_the_game(self):
         app = self.make_app()

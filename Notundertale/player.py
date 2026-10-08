@@ -9,7 +9,8 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        self.original_image = pygame.transform.scale(app.assets.skins[app.selected_skin], (100, 100))
+        # Le catalogue fixe la taille de jeu : ne pas regonfler les miniatures.
+        self.original_image = app.assets.skins[app.selected_skin].copy()
         self.image = self.original_image.copy()
         self.rect = self.image.get_rect(center=app.screen.get_rect().center)
         self.mask = pygame.mask.from_surface(self.image)

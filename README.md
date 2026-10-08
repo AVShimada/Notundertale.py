@@ -42,8 +42,30 @@ Les menus gardent leurs proportions en plein écran et ajustent aussi les zones
 de clic. Des marges peuvent apparaître sur un écran qui n'est pas au format 16:9.
 
 La palette et le dessin des éléments sont regroupés dans `Notundertale/theme.py`.
-Aucune police ni image supplémentaire n'est à installer. Les sprites des joueurs,
-les projectiles et le décor pendant la partie sont conservés pour une étape ultérieure.
+Aucune police ni image supplémentaire n'est à installer. Les projectiles et le
+décor pendant la partie sont conservés pour une étape ultérieure.
+
+## Personnages miniatures
+
+Quatre astronautes morts, animés par une substance inconnue, sont jouables dans le
+mode Infini : **Le Rémanent** (cyan), **Le Scaphandre** (ambre), **La Colonie**
+(violet) et **Le Dériveur** (vert pâle). Le Rémanent est sélectionné au démarrage.
+
+Leurs PNG transparents font **32 × 48 pixels**, affichés à leur taille native
+pendant la partie. Le menu les agrandit sans lissage et sans déformation ; ses six
+cartes sont réparties sur deux lignes, avec les deux apparences classiques à la
+suite des nouvelles. Cliquer sur une carte ou utiliser gauche / droite au clavier
+ou à la manette, puis lancer **Mode Infini**.
+
+Les collisions suivent les pixels du sprite, y compris après retournement ; les
+marges transparentes ne subissent pas de dégâts. La taille réduite offre donc
+plus de place pour esquiver. Les commandes, la vitesse, les vies et le dash restent
+les mêmes. Les personnages classiques gardent leurs dimensions précédentes.
+
+Cette première intégration utilise des poses fixes qui se retournent selon le
+déplacement, avec les effets existants de dash et de dégâts. Les cycles d'animation
+de déplacement et de dash pourront être ajoutés ensuite. Les images sont dans
+`Notundertale/characters/`, et les noms et dimensions dans `Notundertale/skins.py`.
 
 ## Commandes par défaut
 
@@ -129,6 +151,7 @@ La pause reste active pendant la modification des commandes.
 | `difficulty.py` | Progression et choix des variantes de météores |
 | `timing.py` | Horloge qui exclut le temps passé en pause |
 | `assets.py` | Chargement et cache des images |
+| `skins.py` | Catalogue, dimensions et aperçus des personnages |
 | `audio.py` | Musique, effets et volume |
 | `scores.py` | Lecture et sauvegarde du classement |
 | `controls.py` | Affectations, validation et sauvegarde des commandes |
@@ -172,8 +195,10 @@ fenêtre et ne font pas de bruit. Ils couvrent les limites de recharge, la pause
 les dégâts, les sons, les bonus, les apparitions, les scores et le redémarrage,
 ainsi que les commandes Xbox simulées, les réaffectations, les sauvegardes,
 les menus, les déconnexions, la zone morte et les appuis maintenus.
-Cette version passe 52 tests automatisés, dont le démarrage des lanceurs et
-les clics dans les menus agrandis ou affichés avec des marges. Le rendu a été
+Cette version passe 58 tests automatisés, dont le démarrage des lanceurs,
+la sélection des six personnages à la souris, au clavier et à la manette,
+les collisions des miniatures et les clics dans les menus agrandis ou affichés
+avec des marges. Le rendu a été
 inspecté en 1280 × 720, 1920 × 1080 et 1024 × 768.
 Une vérification complémentaire avec
 une manette virtuelle SDL a couvert les événements réels du pilote, le stick,
@@ -186,7 +211,8 @@ comme dans le prototype. Un essai réel permet de juger la sensation de jeu et l
 
 - Première étape faite : séparation du code, jauge de dash, quatre effets sonores.
 - Troisième étape faite : interface et menus pixel art, bleu nuit et cyan.
-- À définir ensemble : nouveaux graphismes des personnages, projectiles et décor en jeu.
+- Quatrième étape faite : quatre astronautes undead miniatures jouables dans le mode Infini.
+- À définir ensemble : animations des personnages, projectiles et décor en jeu.
 - Deuxième étape faite : manette, navigation complète des menus et commandes personnalisables.
 - À concevoir : scénario, dialogues, niveaux et progression du mode Histoire.
 

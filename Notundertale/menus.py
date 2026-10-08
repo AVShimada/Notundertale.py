@@ -5,6 +5,7 @@ import pygame
 from .config import DISPLAY_TOP, FPS
 from .controls_menu import show_controls_menu
 from .input import MenuInput
+from .skins import skin_label, skin_preview
 from .ui import draw_button, draw_text, draw_volume_slider
 from .theme import (UiCanvas, pixel_font, panel as draw_panel, focus_corners,
                     draw_space, text_at, fit_label, footer, CYAN, ICE, MUTED,
@@ -15,15 +16,17 @@ def show_main_menu(app):
     canvas = UiCanvas(app.screen)
     screen = canvas.surface
     font = pixel_font(2)
-    skin_size = min(144, (392 - 16 * (len(app.assets.skins) - 1)) // len(app.assets.skins))
-    skin_panel = pygame.Rect(764, 244, 452, 344)
+    columns = min(3, len(app.assets.skins))
+    rows = (len(app.assets.skins) + columns - 1) // columns
+    skin_size = min(144, (392 - 16 * (columns - 1)) // columns)
+    card_height = 112 if rows > 1 else 168
+    skin_panel = pygame.Rect(764, 244, 452, 392)
     skin_rects = {
-        name: pygame.Rect(round(skin_panel.centerx + (i - (len(app.assets.skins) - 1) / 2) * (skin_size + 16) - skin_size / 2),
-                          320, skin_size, 168)
+        name: pygame.Rect(round(skin_panel.centerx + (i % columns - (columns - 1) / 2) * (skin_size + 16) - skin_size / 2),
+                          304 + (i // columns) * 128, skin_size, card_height)
         for i, name in enumerate(app.assets.skins)
     }
-    previews = {name: pygame.transform.scale(app.assets.skins[name], (96, 96))
-                for name, rect in skin_rects.items()}
+    previews = {name: skin_preview(app.assets.skins[name]) for name in skin_rects}
     buttons = [(action, label, pygame.Rect(96, 280 + i * 72, 528, 56))
                for i, (action, label) in enumerate([
                    ("infinite", "Mode Infini"), ("story", "Mode Histoire"),
@@ -74,18 +77,21 @@ def show_main_menu(app):
         pygame.draw.rect(screen, CYAN, (96, 196, 84, 4))
         text_at(screen, "COMBIEN DE TEMPS TIENDRAS-TU ?", (96, 216), 2, MUTED)
         draw_panel(screen, skin_panel)
-        text_at(screen, "APPARENCE", (skin_panel.x + 28, 270), 2, ICE)
+        text_at(screen, "PERSONNAGE", (skin_panel.x + 28, 270), 2, ICE)
         text_at(screen, "<  >", (skin_panel.right - 88, 270), 2, CYAN)
         for i, (name, rect) in enumerate(skin_rects.items()):
             chosen = name == app.selected_skin
             draw_panel(screen, rect, PANEL_LIGHT if chosen else PANEL, CYAN if chosen else EDGE, shadow=False)
-            screen.blit(previews[name], (rect.centerx - 48, rect.y + 14))
-            fit_label(screen, f"SKIN {i + 1:02d}", pygame.Rect(rect.x, rect.y + 122, rect.width, 30), ICE if chosen else MUTED)
+            preview = previews[name]
+            screen.blit(preview, (rect.centerx - preview.get_width() // 2, rect.y + 8))
+            text_at(screen, f"{i + 1:02d}", (rect.x + 7, rect.y + 8), 1, CYAN if chosen else DIM)
+            if rows == 1:
+                fit_label(screen, skin_label(name), pygame.Rect(rect.x + 4, rect.y + 122, rect.width - 8, 30), ICE if chosen else MUTED)
             if chosen:
                 focus_corners(screen, rect)
                 pygame.draw.rect(screen, CYAN, (rect.centerx - 12, rect.bottom - 7, 24, 4))
-        fit_label(screen, "SÉLECTIONNÉ", pygame.Rect(780, 512, 420, 24), CYAN, 2)
-        fit_label(screen, "GAUCHE / DROITE : CHANGER", pygame.Rect(780, 546, 420, 24), MUTED, 2)
+        fit_label(screen, skin_label(app.selected_skin), pygame.Rect(780, 570, 420, 24), CYAN, 2)
+        fit_label(screen, "GAUCHE / DROITE : CHANGER", pygame.Rect(780, 606, 420, 18), MUTED, 2)
         for i, (_, label, rect) in enumerate(buttons):
             draw_button(screen, rect, label, font, focused == i)
         footer(screen, "HAUT / BAS : MENU    A / ENTRÉE : CHOISIR    B / ÉCHAP : RETOUR")

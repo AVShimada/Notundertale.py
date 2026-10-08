@@ -3,17 +3,15 @@
 import pygame
 
 from .config import ASSET_DIR
+from .skins import SKINS
 
 
 class Assets:
     def __init__(self, screen_size):
         self._images = {}
         self.skins = {
-            name: self.image(filename)
-            for name, filename in {
-                "default": "player.png",
-                "skin2": "player_skin2.png",
-            }.items()
+            name: self.image(skin.filename, skin.size)
+            for name, skin in SKINS.items()
         }
         self.heart = self.image("heart.png", (50, 50))
         self.shield = self.image("shield.png", (75, 75))

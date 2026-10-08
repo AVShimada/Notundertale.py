@@ -10,6 +10,7 @@ from .game import Game
 from .input import InputManager
 from .menus import show_coming_soon_screen, show_main_menu
 from .timing import GameClock
+from .skins import DEFAULT_SKIN
 
 
 class App:
@@ -27,7 +28,7 @@ class App:
         self.assets = Assets(self.screen.get_size())
         self.audio = Audio()
         self.clock = GameClock()
-        self.selected_skin = "default"
+        self.selected_skin = DEFAULT_SKIN
         self.speed_multiplier = 1.0
         self.inputs = InputManager()
 
