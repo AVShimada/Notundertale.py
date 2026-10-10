@@ -1,4 +1,4 @@
-"""Régénère les quatre effets chiptune, sans échantillons externes ni dépendances.
+"""Régénère les effets chiptune, sans échantillons externes ni dépendances.
 
 Utilisation depuis la racine : python tools/generate_sounds.py
 """
@@ -45,6 +45,7 @@ def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     write_sound("hit.wav", tone(200, 55, 0.17, noise=0.45))
     write_sound("dash.wav", tone(240, 1100, 0.14, noise=0.18, amplitude=0.30))
+    write_sound("ray.wav", tone(1400, 160, 0.11, noise=0.04, amplitude=0.23))
     write_sound("power_up.wav", tone(523.25, 523.25, 0.08) +
                 tone(659.25, 659.25, 0.08) + tone(1046.5, 1046.5, 0.18))
     write_sound("game_over.wav", tone(392, 392, 0.18) + tone(329.63, 329.63, 0.18) +

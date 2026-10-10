@@ -1,4 +1,4 @@
-"""Les petits personnages sont sélectionnables et leurs collisions suivent le sprite."""
+"""Les personnages 100 × 100 sont sélectionnables et leurs collisions suivent le sprite."""
 import os
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
@@ -17,7 +17,7 @@ from Notundertale.controls import ControlSettings
 from Notundertale.game import Game
 from Notundertale.input import InputManager, InputState
 from Notundertale.menus import show_main_menu
-from Notundertale.skins import MINI_SPRITE_SIZE, SKINS
+from Notundertale.skins import PLAYER_SPRITE_SIZE, SKINS
 from Notundertale.timing import GameClock
 
 MINI_NAMES = ("remanent", "scaphandre", "colonie", "deriveur")
@@ -45,18 +45,20 @@ class MiniCharacterTests(unittest.TestCase):
         self.app.selected_skin = name
         return Game(self.app)
 
-    def test_delivered_sprites_are_small_transparent_and_distinct(self):
+    def test_delivered_sprites_are_native_size_transparent_and_distinct(self):
         pixels = set()
         for name in MINI_NAMES:
             with self.subTest(name=name):
                 image = pygame.image.load(str(ASSET_DIR / SKINS[name].filename))
-                self.assertEqual(image.get_size(), MINI_SPRITE_SIZE)
+                self.assertEqual(image.get_size(), PLAYER_SPRITE_SIZE)
                 self.assertEqual(image.get_at((0, 0)).a, 0)
                 mask = pygame.mask.from_surface(image)
-                self.assertGreater(mask.count(), 100)
-                self.assertLess(mask.count(), 32 * 48 * 0.8)
+                self.assertGreater(mask.count(), 1000)
+                self.assertLess(mask.count(), 100 * 100 * 0.8)
                 pixels.add(pygame.image.tostring(image, "RGBA"))
                 player = self.game_with(name).player
+                self.assertEqual(pygame.image.tostring(player.image, "RGBA"),
+                                 pygame.image.tostring(image, "RGBA"))
                 self.assertEqual(player.rect.size, (100, 100))
                 self.assertEqual(player.image.get_bounding_rect(min_alpha=128).height,
                                  self.assets.skins["skin2"].get_bounding_rect(min_alpha=128).height)

@@ -15,6 +15,7 @@ class Audio:
         "dash": "dash.wav",
         "power_up": "power_up.wav",
         "game_over": "game_over.wav",
+        "ray": "ray.wav",
     }
 
     def __init__(self, asset_dir=ASSET_DIR):

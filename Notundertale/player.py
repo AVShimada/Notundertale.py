@@ -11,6 +11,8 @@ class Player(pygame.sprite.Sprite):
         self.app = app
         # Les assets ont déjà la bonne taille de jeu et conservent leurs proportions.
         self.original_image = app.assets.skins[app.selected_skin].copy()
+        self.animation = app.assets.character_animation(app.selected_skin)
+        self._animation_time = app.now_ms()
         self.image = self.original_image.copy()
         self.rect = self.image.get_rect(center=app.screen.get_rect().center)
         self.mask = pygame.mask.from_surface(self.image)
@@ -51,6 +53,9 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, inputs):
         now = self.app.now_ms()
+        animation_dt = max(0, min(0.1, (now - self._animation_time) / 1000))
+        self._animation_time = now
+        previous_position = pygame.Vector2(self.rect.topleft)
         if self.invulnerable and now - self.invulnerable_start_time >= self.invulnerable_duration_ms:
             self.invulnerable = False
         if self.dashing and now - self.dash_start_time >= DASH_DURATION_MS:
@@ -60,6 +65,8 @@ class Player(pygame.sprite.Sprite):
 
         if self.dashing:
             movement = self.dash_dir * self.base_speed * DASH_SPEED_MULT
+            if self.dash_dir.x:
+                self.facing_left = self.dash_dir.x < 0
         else:
             direction = pygame.Vector2(inputs.x, inputs.y)
             movement = direction * self.base_speed
@@ -71,8 +78,10 @@ class Player(pygame.sprite.Sprite):
         self.rect.move_ip(int(step.x), int(step.y))
         self.rect.clamp_ip(self.app.screen.get_rect())
 
-        # Repartir de l'image opaque évite les clignotements annulés par le mouvement.
-        self.image = pygame.transform.flip(self.original_image, self.facing_left, False)
+        distance = previous_position.distance_to(self.rect.topleft)
+        self.animation.update(animation_dt, distance, dashing=self.dashing)
+        # Copier la pose avant de modifier l'alpha pour ne pas altérer les assets partagés.
+        self.image = self.animation.image(self.facing_left).copy()
         self.mask = pygame.mask.from_surface(self.image)
         if self.dashing:
             self.image.set_alpha(180)

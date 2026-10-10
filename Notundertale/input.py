@@ -14,6 +14,12 @@ class InputState:
     y: float = 0.0
     dash: bool = False
     pause: bool = False
+    jump: bool = False
+    shoot: bool = False
+    interact: bool = False
+    weapon_1: bool = False
+    weapon_2: bool = False
+    heal: bool = False
 
 
 class Pad:
@@ -95,6 +101,7 @@ class Pad:
 class InputManager:
     def __init__(self, settings=None):
         self.settings = settings or ControlSettings()
+        self._settings_by_mode = {self.settings.mode: self.settings}
         self.pads = {}
         self.active_id = None
         self.last_device = "keyboard"
@@ -109,6 +116,14 @@ class InputManager:
     @property
     def pad(self):
         return self.pads.get(self.active_id)
+
+    def set_mode(self, mode):
+        if mode not in self._settings_by_mode:
+            filename = "controls_story.json" if mode == "story" else "controls.json"
+            self._settings_by_mode[mode] = ControlSettings(self.settings.path.with_name(filename), mode)
+        self.settings = self._settings_by_mode[mode]
+        self._blocked.clear()
+        self._pause_held = False
 
     def add_pad(self, index):
         try:
@@ -133,7 +148,7 @@ class InputManager:
                     self.disconnected = self.last_device == "pad"
                     self.active_id = next(iter(self.pads), None)
                     self.last_device = "keyboard"
-        elif event.type == pygame.KEYDOWN:
+        elif event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
             self.last_device = "keyboard"
         elif self.pad:
             binding = self.pad.event_binding(event)
@@ -144,13 +159,15 @@ class InputManager:
         if not self.pad:
             return 0.0
         profile = default_pad(self.pad.standard) if defaults else self.settings.profile(self.pad.profile_name, self.pad.standard)
-        return max((self.pad.value(binding) for binding in profile[action]), default=0.0)
+        return max((self.pad.value(binding) for binding in profile.get(action, [])), default=0.0)
 
     def values(self, keys=None):
         keys = pygame.key.get_pressed() if keys is None else keys
         result = {}
-        for action in ACTIONS:
-            keyboard = bool(keys[self.settings.keyboard[action]])
+        mouse = pygame.mouse.get_pressed(3)
+        for action in self.settings.actions:
+            key = self.settings.keyboard[action]
+            keyboard = bool(mouse[-key - 1]) if key < 0 else bool(keys[key])
             if (action == "dash" and self.settings.keyboard[action] == pygame.K_LSHIFT
                     and pygame.K_RSHIFT not in self.settings.keyboard.values()):
                 keyboard |= bool(keys[pygame.K_RSHIFT])
@@ -170,18 +187,26 @@ class InputManager:
         pause = values["pause"] > 0.5
         pressed = pause and not self._pause_held
         self._pause_held = pause
-        return InputState(values["right"] - values["left"], values["down"] - values["up"],
-                          values["dash"] > 0.5, pressed)
+        return InputState(values["right"] - values["left"], values.get("down", 0) - values.get("up", 0),
+                          values["dash"] > 0.5, pressed, values.get("jump", 0) > 0.5,
+                          values.get("shoot", 0) > 0.5, values.get("interact", 0) > 0.5,
+                          values.get("weapon_1", 0) > 0.5, values.get("weapon_2", 0) > 0.5,
+                          values.get("heal", 0) > 0.5)
 
     def release_actions(self):
         """Un bouton qui ferme un menu ne déclenche pas un dash au retour."""
-        self._blocked = {action for action in ("dash", "pause") if self.values()[action] > 0.5}
+        values = self.values()
+        self._blocked = {action for action in ("dash", "pause", "jump", "shoot", "interact", "weapon_1", "weapon_2", "heal")
+                         if values.get(action, 0) > 0.5}
         self._pause_held = False
 
     def dash_label(self):
+        return self.action_label("dash")
+
+    def action_label(self, action):
         if self.last_device == "pad" and self.pad:
-            return self.pad.label(self.settings.profile(self.pad.profile_name, self.pad.standard)["dash"][0])
-        return key_label(self.settings.keyboard["dash"])
+            return self.pad.label(self.settings.profile(self.pad.profile_name, self.pad.standard)[action][0])
+        return key_label(self.settings.keyboard[action])
 
 
 class MenuInput:
@@ -203,7 +228,7 @@ class MenuInput:
                 else:
                     fixed = {pygame.K_UP: "up", pygame.K_DOWN: "down", pygame.K_LEFT: "left", pygame.K_RIGHT: "right"}
                     action = fixed.get(event.key) or next((action for action, key in self.inputs.settings.keyboard.items() if key == event.key), None)
-                    if action and action != "dash":
+                    if action in ("up", "down", "left", "right", "pause"):
                         commands.append(action)
             elif self.inputs.pad:
                 binding = self.inputs.pad.event_binding(event)

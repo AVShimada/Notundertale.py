@@ -288,7 +288,7 @@ class PersistenceAndAudioTests(unittest.TestCase):
         pygame.mixer.init()
         try:
             audio = Audio()
-            self.assertEqual(set(audio.sounds), {"hit", "dash", "power_up", "game_over"})
+            self.assertEqual(set(audio.sounds), {"hit", "dash", "power_up", "game_over", "ray"})
             for sound in audio.sounds.values():
                 self.assertGreater(sound.get_length(), 0.05)
             audio.set_volume(0)

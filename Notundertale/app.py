@@ -8,7 +8,8 @@ from .assets import Assets
 from .audio import Audio
 from .game import Game
 from .input import InputManager
-from .menus import show_coming_soon_screen, show_main_menu
+from .menus import show_main_menu
+from .story.game import StoryGame
 from .timing import GameClock
 from .skins import DEFAULT_SKIN
 
@@ -40,13 +41,11 @@ class App:
             mode = show_main_menu(self)
             if mode == "quit":
                 return
-            if mode == "story":
-                if show_coming_soon_screen(self) == "quit":
-                    return
-            elif mode == "infinite":
+            if mode in ("story", "infinite"):
+                game_class = StoryGame if mode == "story" else Game
                 action = "restart"
                 while action == "restart":
-                    action = Game(self).run()
+                    action = game_class(self).run()
                 if action == "quit":
                     return
 
